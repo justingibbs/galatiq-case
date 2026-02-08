@@ -1,0 +1,16 @@
+{% set stages = ['ingesting', 'validating', 'approving', 'paying'] %}
+{% set stage_labels = {'ingesting': 'Extract', 'validating': 'Validate', 'approving': 'Approve', 'paying': 'Pay'} %}
+{% set stage_order = {'pending': 0, 'ingesting': 1, 'validating': 2, 'approving': 3, 'paying': 4, 'completed': 5, 'rejected': 5, 'failed': 5} %}
+{% set current_order = stage_order.get(invoice.stage.value, 0) %}
+
+<ul class="steps steps-horizontal text-xs">
+  {% for s in stages %}
+  {% set s_order = stage_order.get(s, 0) %}
+  <li class="step{% if current_order > s_order %} step-primary{% elif current_order == s_order %} step-primary{% endif %}">
+    {{ stage_labels[s] }}
+  </li>
+  {% endfor %}
+  <li class="step{% if invoice.stage.value == 'completed' %} step-success{% elif invoice.stage.value in ('rejected', 'failed') %} step-error{% endif %}">
+    {% if invoice.stage.value == 'rejected' %}Rejected{% elif invoice.stage.value == 'failed' %}Failed{% else %}Done{% endif %}
+  </li>
+</ul>

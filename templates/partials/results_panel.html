@@ -1,0 +1,130 @@
+{% if invoice.extracted %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+  <!-- Extracted Data -->
+  <div class="card bg-base-100 shadow-sm border border-base-300">
+    <div class="card-body p-4">
+      <h3 class="font-bold text-sm mb-3">Extracted Data</h3>
+      <div class="overflow-x-auto">
+        <table class="table table-xs">
+          <tbody>
+            <tr><td class="font-semibold w-32">Invoice #</td><td>{{ invoice.extracted.invoice_number or '—' }}</td></tr>
+            <tr><td class="font-semibold">Vendor</td><td>{{ invoice.extracted.vendor_name }}</td></tr>
+            <tr><td class="font-semibold">Date</td><td>{{ invoice.extracted.invoice_date or '—' }}</td></tr>
+            <tr><td class="font-semibold">Due Date</td><td>{{ invoice.extracted.due_date or '—' }}</td></tr>
+            <tr><td class="font-semibold">Currency</td><td>{{ invoice.extracted.currency or 'USD' }}</td></tr>
+            <tr><td class="font-semibold">Subtotal</td><td>{{ "%.2f"|format(invoice.extracted.subtotal) if invoice.extracted.subtotal is not none else '—' }}</td></tr>
+            <tr><td class="font-semibold">Tax</td><td>{{ "%.2f"|format(invoice.extracted.tax_amount) if invoice.extracted.tax_amount is not none else '—' }}</td></tr>
+            <tr><td class="font-semibold">Total</td><td class="font-bold">{{ "%.2f"|format(invoice.extracted.total_amount) }}</td></tr>
+            {% if invoice.extracted.notes %}
+            <tr><td class="font-semibold">Notes</td><td>{{ invoice.extracted.notes }}</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+      <h4 class="font-bold text-xs mt-4 mb-2">Line Items</h4>
+      <div class="overflow-x-auto">
+        <table class="table table-xs">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th class="text-right">Qty</th>
+              <th class="text-right">Unit Price</th>
+              <th class="text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in invoice.extracted.line_items %}
+            <tr>
+              <td>{{ item.description }}</td>
+              <td class="text-right">{{ item.quantity if item.quantity is not none else '—' }}</td>
+              <td class="text-right">{{ "%.2f"|format(item.unit_price) if item.unit_price is not none else '—' }}</td>
+              <td class="text-right">{{ "%.2f"|format(item.amount) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Validation + Approval + Payment -->
+  <div class="space-y-4">
+    {% if invoice.validation %}
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body p-4">
+        <h3 class="font-bold text-sm mb-2">Validation</h3>
+        {% if invoice.validation.is_valid %}
+          <div class="alert alert-success py-2 text-sm">All checks passed</div>
+        {% else %}
+          <div class="space-y-2">
+            {% for flag in invoice.validation.flags %}
+            <div class="alert alert-warning py-2 text-xs">
+              <div>
+                <span class="font-semibold">[{{ flag.issue }}]</span>
+                <span class="font-medium">{{ flag.item }}:</span>
+                {{ flag.detail }}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if invoice.approval %}
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body p-4">
+        <h3 class="font-bold text-sm mb-2">Approval Decision</h3>
+        <div class="flex gap-2 mb-2">
+          {% if invoice.approval.approved %}
+            <span class="badge badge-success">Approved</span>
+          {% else %}
+            <span class="badge badge-error">Rejected</span>
+          {% endif %}
+          <span class="badge badge-outline">{{ invoice.approval.risk_level }} risk</span>
+          {% if invoice.approval.requires_manual_review %}
+            <span class="badge badge-warning">Manual Review Required</span>
+          {% endif %}
+        </div>
+        <p class="text-sm text-base-content/80">{{ invoice.approval.reasoning }}</p>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if invoice.payment_result %}
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body p-4">
+        <h3 class="font-bold text-sm mb-2">Payment</h3>
+        <div class="alert alert-success py-2 text-sm">
+          <div>
+            <p><span class="font-semibold">Transaction:</span> {{ invoice.payment_result.transaction_id }}</p>
+            <p><span class="font-semibold">Status:</span> {{ invoice.payment_result.status }}</p>
+            <p><span class="font-semibold">Amount:</span> {{ invoice.payment_result.currency }} {{ "%.2f"|format(invoice.payment_result.amount) }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if invoice.error and invoice.stage.value in ('failed', 'rejected') %}
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body p-4">
+        <h3 class="font-bold text-sm mb-2">Error</h3>
+        <div class="alert alert-error py-2 text-sm">{{ invoice.error }}</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% elif invoice.stage.value == 'pending' %}
+<div class="alert mt-4">
+  <p>This invoice has not been processed yet. Click "Process" to start the pipeline.</p>
+</div>
+{% elif invoice.stage.value in ('ingesting', 'validating', 'approving', 'paying') %}
+<div class="flex items-center gap-2 mt-4">
+  <span class="loading loading-spinner loading-md"></span>
+  <span>Processing...</span>
+</div>
+{% endif %}

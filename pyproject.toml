@@ -1,0 +1,16 @@
+[project]
+name = "galatiq-case-invoices"
+version = "0.1.0"
+description = "Invoice processing pipeline with PydanticAI, Gemini, and FastAPI"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic-ai-slim[google]",
+    "pydantic-graph",
+    "fastapi",
+    "uvicorn[standard]",
+    "jinja2",
+    "pdfplumber",
+    "python-dotenv",
+    "python-multipart",
+    "sse-starlette",
+]

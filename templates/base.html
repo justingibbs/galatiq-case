@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="corporate">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Invoice Pipeline{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/full.css" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="min-h-screen bg-base-200">
+  <div class="navbar bg-base-100 shadow-sm">
+    <div class="flex-1">
+      <a href="/" class="btn btn-ghost text-xl font-bold">Invoice Pipeline</a>
+    </div>
+    <div class="flex-none gap-2">
+      <span class="badge badge-outline">Acme Corp</span>
+    </div>
+  </div>
+  <main class="container mx-auto px-4 py-6 max-w-7xl">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

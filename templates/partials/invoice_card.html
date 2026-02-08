@@ -1,0 +1,88 @@
+<div data-invoice-id="{{ invoice.invoice_id }}">
+<div class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow">
+  <div class="card-body p-4">
+    <div class="flex items-center justify-between">
+      <h2 class="card-title text-sm">
+        <a href="/invoices/{{ invoice.invoice_id }}" class="hover:underline">
+          {{ invoice.filename }}
+        </a>
+      </h2>
+      <span class="badge badge-sm badge-outline">{{ invoice.file_format }}</span>
+    </div>
+
+    <div class="mt-2">
+      {% if invoice.stage.value == 'pending' %}
+        <span class="badge badge-ghost badge-sm">Pending</span>
+      {% elif invoice.stage.value == 'ingesting' %}
+        <span class="badge badge-info badge-sm">
+          <span class="loading loading-spinner loading-xs mr-1"></span>Extracting
+        </span>
+      {% elif invoice.stage.value == 'validating' %}
+        <span class="badge badge-info badge-sm">
+          <span class="loading loading-spinner loading-xs mr-1"></span>Validating
+        </span>
+      {% elif invoice.stage.value == 'approving' %}
+        <span class="badge badge-warning badge-sm">
+          <span class="loading loading-spinner loading-xs mr-1"></span>Approving
+        </span>
+      {% elif invoice.stage.value == 'paying' %}
+        <span class="badge badge-warning badge-sm">
+          <span class="loading loading-spinner loading-xs mr-1"></span>Paying
+        </span>
+      {% elif invoice.stage.value == 'completed' %}
+        <span class="badge badge-success badge-sm">Paid</span>
+      {% elif invoice.stage.value == 'rejected' %}
+        <span class="badge badge-error badge-sm">Rejected</span>
+      {% elif invoice.stage.value == 'failed' %}
+        <span class="badge badge-error badge-sm">Failed</span>
+      {% endif %}
+    </div>
+
+    {% if invoice.extracted %}
+    <div class="mt-2 text-xs text-base-content/70">
+      <p><span class="font-semibold">Vendor:</span> {{ invoice.extracted.vendor_name }}</p>
+      <p><span class="font-semibold">Total:</span> {{ invoice.extracted.currency or 'USD' }} {{ "%.2f"|format(invoice.extracted.total_amount) }}</p>
+      {% if invoice.extracted.invoice_number %}
+      <p><span class="font-semibold">Invoice:</span> {{ invoice.extracted.invoice_number }}</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if invoice.validation and invoice.validation.flags %}
+    <div class="mt-2">
+      {% for flag in invoice.validation.flags %}
+      <span class="badge badge-warning badge-xs">{{ flag.issue }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if invoice.approval %}
+    <div class="mt-2 text-xs">
+      {% if invoice.approval.approved %}
+        <span class="text-success font-semibold">Approved</span>
+      {% else %}
+        <span class="text-error font-semibold">Rejected</span>
+      {% endif %}
+      <span class="text-base-content/50 ml-1">({{ invoice.approval.risk_level }} risk)</span>
+    </div>
+    {% endif %}
+
+    {% if invoice.error %}
+    <div class="mt-2 text-xs text-error truncate" title="{{ invoice.error }}">
+      {{ invoice.error[:80] }}{% if invoice.error|length > 80 %}...{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="card-actions justify-end mt-2">
+      <a href="/invoices/{{ invoice.invoice_id }}" class="btn btn-ghost btn-xs">Details</a>
+      <button
+        class="btn btn-primary btn-xs"
+        hx-post="/api/invoices/{{ invoice.invoice_id }}/process"
+        hx-swap="none"
+      >
+        {% if invoice.stage.value == 'pending' %}Process{% else %}Retry{% endif %}
+      </button>
+    </div>
+  </div>
+</div>
+</div>

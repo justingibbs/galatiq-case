@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}{{ invoice.filename }} — Invoice Pipeline{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <a href="/" class="btn btn-ghost btn-sm">&larr; Back to Dashboard</a>
+</div>
+
+<div
+  id="invoice-detail"
+  hx-ext="sse"
+  sse-connect="/sse/invoices/{{ invoice.invoice_id }}/progress"
+  sse-swap="update"
+  hx-swap="innerHTML"
+>
+  {% include "partials/detail_content.html" %}
+</div>
+{% endblock %}

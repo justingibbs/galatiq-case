@@ -1,0 +1,20 @@
+<div data-invoice-id="{{ invoice.invoice_id }}">
+  <div class="flex items-start justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold">{{ invoice.filename }}</h1>
+      <div class="flex gap-2 mt-2">
+        <span class="badge badge-outline">{{ invoice.file_format }}</span>
+        {% include "partials/pipeline_steps.html" %}
+      </div>
+    </div>
+    <button
+      class="btn btn-primary btn-sm"
+      hx-post="/api/invoices/{{ invoice.invoice_id }}/process"
+      hx-swap="none"
+    >
+      {% if invoice.stage.value == 'pending' %}Process{% else %}Reprocess{% endif %}
+    </button>
+  </div>
+
+  {% include "partials/results_panel.html" %}
+</div>

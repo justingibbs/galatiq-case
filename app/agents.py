@@ -4,9 +4,10 @@ from functools import lru_cache
 
 from pydantic_ai import Agent, NativeOutput
 
-from app.models import ApprovalDecision, ExtractedInvoice
+from app.models import ApprovalDecision, ExtractedInvoice, MatchResult
 
 GEMINI_MODEL = "google-gla:gemini-2.0-flash"
+MATCH_CONFIDENCE_THRESHOLD = 0.8
 
 
 @lru_cache(maxsize=1)
@@ -63,6 +64,45 @@ def get_approval_agent() -> Agent:
             "- reasoning: explain your decision clearly, referencing specific flags and invoice details\n"
             "- risk_level: 'low', 'medium', or 'high'\n"
             "- requires_manual_review: true if a human should double-check before payment\n"
+        ),
+        retries=2,
+    )
+
+
+@lru_cache(maxsize=1)
+def get_matching_agent() -> Agent:
+    return Agent(
+        GEMINI_MODEL,
+        output_type=NativeOutput(MatchResult),
+        system_prompt=(
+            "You are an expert inventory and vendor matching system for Acme Corp.\n\n"
+            "You will receive:\n"
+            "1. Extracted invoice data (vendor name + line items)\n"
+            "2. A list of known inventory items with their current stock\n"
+            "3. A list of known vendors\n\n"
+            "Your job is to match each extracted line item description to the most likely "
+            "inventory item, and match the vendor name to a known vendor.\n\n"
+            "MATCHING RULES:\n"
+            "- For items: match against the known inventory item names. Consider common variations:\n"
+            "  * Spacing differences ('Widget A' → 'WidgetA')\n"
+            "  * OCR errors ('WidgetB' vs 'Widget8')\n"
+            "  * Partial matches ('Widget Type A' → 'WidgetA')\n"
+            "  * Case differences\n"
+            "- For vendors: match against the known vendor names. Consider:\n"
+            "  * Abbreviations ('Inc.' vs 'Incorporated')\n"
+            "  * Minor typos\n"
+            "  * Partial names\n\n"
+            "CONFIDENCE SCORING (0.0 to 1.0):\n"
+            "- 1.0: Exact match (possibly after normalization)\n"
+            "- 0.8-0.99: Very likely match with minor variations\n"
+            "- 0.5-0.79: Possible match but uncertain\n"
+            "- 0.0-0.49: No good match found\n\n"
+            "- If no good match exists, set matched_item/matched_vendor_name to null and confidence to 0.0\n"
+            "- Always provide up to 3 alternatives (other possible matches) sorted by likelihood\n"
+            "- Non-inventory items like 'Shipping', 'Rush Fee', 'Discount' should get confidence 1.0 "
+            "with matched_item set to their description as-is (they don't need inventory matching)\n"
+            "- Set all_high_confidence to true ONLY if every item match AND the vendor match "
+            "have confidence >= 0.8\n"
         ),
         retries=2,
     )

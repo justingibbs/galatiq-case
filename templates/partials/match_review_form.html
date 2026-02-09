@@ -1,0 +1,140 @@
+<div class="card bg-warning/10 shadow-sm border border-warning">
+  <div class="card-body p-4">
+    <h3 class="font-bold text-sm mb-3">Match Review Required</h3>
+    <p class="text-xs text-base-content/70 mb-4">
+      Some items or the vendor could not be matched with high confidence.
+      Please select the correct matches below.
+    </p>
+
+    <form id="match-review-form">
+      <!-- Vendor Selection -->
+      <div class="form-control mb-4">
+        <label class="label">
+          <span class="label-text text-xs font-semibold">Vendor Name</span>
+        </label>
+        <div class="text-xs text-base-content/60 mb-1">
+          Extracted: "{{ match_result_data.vendor_match.extracted_name }}"
+          {% if match_result_data.vendor_match.matched_vendor_name %}
+          (best guess: {{ match_result_data.vendor_match.matched_vendor_name }},
+           {{ "%.0f"|format(match_result_data.vendor_match.confidence * 100) }}%)
+          {% endif %}
+        </div>
+        <select id="vendor-select" class="select select-bordered select-sm w-full">
+          {% if match_result_data.vendor_match.matched_vendor_name %}
+          <option value="{{ match_result_data.vendor_match.matched_vendor_name }}" selected>
+            {{ match_result_data.vendor_match.matched_vendor_name }}
+          </option>
+          {% endif %}
+          {% for alt in match_result_data.vendor_match.alternatives %}
+          <option value="{{ alt }}">{{ alt }}</option>
+          {% endfor %}
+          {% if vendors is defined %}
+          <optgroup label="All Known Vendors">
+            {% for v in vendors %}
+            <option value="{{ v.name }}">{{ v.name }}</option>
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+          <option value="__new__">+ Create New Vendor</option>
+        </select>
+        <input
+          id="new-vendor-input"
+          type="text"
+          class="input input-bordered input-sm w-full mt-2 hidden"
+          placeholder="Enter new vendor name"
+        />
+      </div>
+
+      <!-- Item Mappings -->
+      <div class="space-y-3 mb-4">
+        <label class="label">
+          <span class="label-text text-xs font-semibold">Item Mappings</span>
+        </label>
+        {% for im in match_result_data.item_matches %}
+        <div class="flex items-center gap-2">
+          <span class="text-xs w-36 truncate" title="{{ im.extracted_description }}">
+            {{ im.extracted_description }}
+          </span>
+          <span class="text-xs text-base-content/50">-></span>
+          <select
+            class="item-mapping-select select select-bordered select-xs flex-1"
+            data-extracted="{{ im.extracted_description }}"
+          >
+            {% if im.matched_item %}
+            <option value="{{ im.matched_item }}" selected>{{ im.matched_item }}</option>
+            {% endif %}
+            {% for alt in im.alternatives %}
+            <option value="{{ alt }}">{{ alt }}</option>
+            {% endfor %}
+            {% if inventory_items is defined %}
+            <optgroup label="All Inventory">
+              {% for inv in inventory_items %}
+              <option value="{{ inv.item }}">{{ inv.item }} (stock: {{ inv.stock }})</option>
+              {% endfor %}
+            </optgroup>
+            {% endif %}
+            <option value="{{ im.extracted_description }}">Keep as-is: {{ im.extracted_description }}</option>
+          </select>
+          {% set ic = im.confidence %}
+          <span class="badge badge-xs {% if ic >= 0.8 %}badge-success{% elif ic >= 0.5 %}badge-warning{% else %}badge-error{% endif %}">
+            {{ "%.0f"|format(ic * 100) }}%
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+
+      <button
+        type="button"
+        class="btn btn-primary btn-sm w-full"
+        onclick="submitMatchReview('{{ invoice.invoice_id }}')"
+      >
+        Confirm Matches & Continue Pipeline
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+document.getElementById('vendor-select').addEventListener('change', function() {
+  const newInput = document.getElementById('new-vendor-input');
+  if (this.value === '__new__') {
+    newInput.classList.remove('hidden');
+    newInput.focus();
+  } else {
+    newInput.classList.add('hidden');
+  }
+});
+
+function submitMatchReview(invoiceId) {
+  const vendorSelect = document.getElementById('vendor-select');
+  const newVendorInput = document.getElementById('new-vendor-input');
+  let vendorName = vendorSelect.value;
+  let createVendor = false;
+
+  if (vendorName === '__new__') {
+    vendorName = newVendorInput.value.trim();
+    createVendor = true;
+    if (!vendorName) {
+      newVendorInput.classList.add('input-error');
+      return;
+    }
+  }
+
+  const itemMappings = {};
+  document.querySelectorAll('.item-mapping-select').forEach(sel => {
+    itemMappings[sel.dataset.extracted] = sel.value;
+  });
+
+  fetch('/api/invoices/' + invoiceId + '/resolve-match', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      item_mappings: itemMappings,
+      vendor_name: vendorName,
+      create_vendor: createVendor,
+    }),
+  }).then(() => {
+    window.location.reload();
+  });
+}
+</script>

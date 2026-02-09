@@ -44,15 +44,53 @@ class ApprovalDecision(BaseModel):
     requires_manual_review: bool
 
 
+# --- Matching models ---
+
+class ItemMatch(BaseModel):
+    extracted_description: str
+    matched_item: str | None = None
+    confidence: float  # 0.0 - 1.0
+    alternatives: list[str] = []
+
+
+class VendorMatch(BaseModel):
+    extracted_name: str
+    matched_vendor_id: int | None = None
+    matched_vendor_name: str | None = None
+    confidence: float
+    alternatives: list[str] = []
+
+
+class MatchResult(BaseModel):
+    vendor_match: VendorMatch
+    item_matches: list[ItemMatch]
+    all_high_confidence: bool
+
+
+# --- Stock check models ---
+
+class StockCheckResult(BaseModel):
+    item: str
+    requested_quantity: float
+    available_stock: int
+    shortfall: float
+
+
+# --- Pipeline enums & status ---
+
 class PipelineStage(str, Enum):
     PENDING = "pending"
     INGESTING = "ingesting"
+    MATCHING = "matching"
     VALIDATING = "validating"
     APPROVING = "approving"
     PAYING = "paying"
     COMPLETED = "completed"
     REJECTED = "rejected"
     FAILED = "failed"
+    NEEDS_MATCH_REVIEW = "needs_match_review"
+    NEEDS_STOCK_REVIEW = "needs_stock_review"
+    BACKORDERED = "backordered"
 
 
 class InvoiceStatus(BaseModel):
@@ -64,6 +102,8 @@ class InvoiceStatus(BaseModel):
     validation: ValidationResult | None = None
     approval: ApprovalDecision | None = None
     payment_result: dict | None = None
+    match_result: MatchResult | None = None
+    stock_issues: list[StockCheckResult] | None = None
     error: str | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None

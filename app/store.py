@@ -62,6 +62,20 @@ class InvoiceStore:
         if queue in self._batch_subscribers:
             self._batch_subscribers.remove(queue)
 
+    def reset_all(self) -> None:
+        """Reset all invoices back to PENDING state."""
+        for status in self.invoices.values():
+            status.stage = PipelineStage.PENDING
+            status.extracted = None
+            status.validation = None
+            status.approval = None
+            status.payment_result = None
+            status.match_result = None
+            status.stock_issues = None
+            status.error = None
+            status.started_at = None
+            status.completed_at = None
+
 
 def scan_invoices(invoices_dir: str | Path = "data/invoices") -> dict[str, tuple[str, str]]:
     """Scan the invoices directory and return {invoice_id: (filename, file_format)}."""

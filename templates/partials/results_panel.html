@@ -7,13 +7,13 @@
       <div class="overflow-x-auto">
         <table class="table table-xs">
           <tbody>
-            <tr><td class="font-semibold w-32">Invoice #</td><td>{{ invoice.extracted.invoice_number or '—' }}</td></tr>
+            <tr><td class="font-semibold w-32">Invoice #</td><td>{{ invoice.extracted.invoice_number or '---' }}</td></tr>
             <tr><td class="font-semibold">Vendor</td><td>{{ invoice.extracted.vendor_name }}</td></tr>
-            <tr><td class="font-semibold">Date</td><td>{{ invoice.extracted.invoice_date or '—' }}</td></tr>
-            <tr><td class="font-semibold">Due Date</td><td>{{ invoice.extracted.due_date or '—' }}</td></tr>
+            <tr><td class="font-semibold">Date</td><td>{{ invoice.extracted.invoice_date or '---' }}</td></tr>
+            <tr><td class="font-semibold">Due Date</td><td>{{ invoice.extracted.due_date or '---' }}</td></tr>
             <tr><td class="font-semibold">Currency</td><td>{{ invoice.extracted.currency or 'USD' }}</td></tr>
-            <tr><td class="font-semibold">Subtotal</td><td>{{ "%.2f"|format(invoice.extracted.subtotal) if invoice.extracted.subtotal is not none else '—' }}</td></tr>
-            <tr><td class="font-semibold">Tax</td><td>{{ "%.2f"|format(invoice.extracted.tax_amount) if invoice.extracted.tax_amount is not none else '—' }}</td></tr>
+            <tr><td class="font-semibold">Subtotal</td><td>{{ "%.2f"|format(invoice.extracted.subtotal) if invoice.extracted.subtotal is not none else '---' }}</td></tr>
+            <tr><td class="font-semibold">Tax</td><td>{{ "%.2f"|format(invoice.extracted.tax_amount) if invoice.extracted.tax_amount is not none else '---' }}</td></tr>
             <tr><td class="font-semibold">Total</td><td class="font-bold">{{ "%.2f"|format(invoice.extracted.total_amount) }}</td></tr>
             {% if invoice.extracted.notes %}
             <tr><td class="font-semibold">Notes</td><td>{{ invoice.extracted.notes }}</td></tr>
@@ -37,8 +37,8 @@
             {% for item in invoice.extracted.line_items %}
             <tr>
               <td>{{ item.description }}</td>
-              <td class="text-right">{{ item.quantity if item.quantity is not none else '—' }}</td>
-              <td class="text-right">{{ "%.2f"|format(item.unit_price) if item.unit_price is not none else '—' }}</td>
+              <td class="text-right">{{ item.quantity if item.quantity is not none else '---' }}</td>
+              <td class="text-right">{{ "%.2f"|format(item.unit_price) if item.unit_price is not none else '---' }}</td>
               <td class="text-right">{{ "%.2f"|format(item.amount) }}</td>
             </tr>
             {% endfor %}
@@ -48,8 +48,21 @@
     </div>
   </div>
 
-  <!-- Validation + Approval + Payment -->
+  <!-- Right Column: Match + Validation + Approval + Payment + Review Forms -->
   <div class="space-y-4">
+
+    {% if invoice.match_result %}
+    {% include "partials/match_results.html" %}
+    {% endif %}
+
+    {% if invoice.stage.value == 'needs_match_review' and match_result_data is defined and match_result_data %}
+    {% include "partials/match_review_form.html" %}
+    {% endif %}
+
+    {% if invoice.stage.value == 'needs_stock_review' and stock_issues_data is defined and stock_issues_data %}
+    {% include "partials/stock_review_form.html" %}
+    {% endif %}
+
     {% if invoice.validation %}
     <div class="card bg-base-100 shadow-sm border border-base-300">
       <div class="card-body p-4">
@@ -116,13 +129,24 @@
       </div>
     </div>
     {% endif %}
+
+    {% if invoice.stage.value == 'backordered' %}
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body p-4">
+        <h3 class="font-bold text-sm mb-2">Backordered</h3>
+        <div class="alert alert-info py-2 text-sm">
+          This invoice is on hold until sufficient stock becomes available.
+        </div>
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% elif invoice.stage.value == 'pending' %}
 <div class="alert mt-4">
   <p>This invoice has not been processed yet. Click "Process" to start the pipeline.</p>
 </div>
-{% elif invoice.stage.value in ('ingesting', 'validating', 'approving', 'paying') %}
+{% elif invoice.stage.value in ('ingesting', 'matching', 'validating', 'approving', 'paying') %}
 <div class="flex items-center gap-2 mt-4">
   <span class="loading loading-spinner loading-md"></span>
   <span>Processing...</span>

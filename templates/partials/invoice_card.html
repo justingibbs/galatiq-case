@@ -17,6 +17,10 @@
         <span class="badge badge-info badge-sm">
           <span class="loading loading-spinner loading-xs mr-1"></span>Extracting
         </span>
+      {% elif invoice.stage.value == 'matching' %}
+        <span class="badge badge-info badge-sm">
+          <span class="loading loading-spinner loading-xs mr-1"></span>Matching
+        </span>
       {% elif invoice.stage.value == 'validating' %}
         <span class="badge badge-info badge-sm">
           <span class="loading loading-spinner loading-xs mr-1"></span>Validating
@@ -35,6 +39,12 @@
         <span class="badge badge-error badge-sm">Rejected</span>
       {% elif invoice.stage.value == 'failed' %}
         <span class="badge badge-error badge-sm">Failed</span>
+      {% elif invoice.stage.value == 'needs_match_review' %}
+        <span class="badge badge-warning badge-sm">Needs Match Review</span>
+      {% elif invoice.stage.value == 'needs_stock_review' %}
+        <span class="badge badge-warning badge-sm">Needs Stock Review</span>
+      {% elif invoice.stage.value == 'backordered' %}
+        <span class="badge badge-info badge-sm">Backordered</span>
       {% endif %}
     </div>
 
@@ -75,13 +85,17 @@
 
     <div class="card-actions justify-end mt-2">
       <a href="/invoices/{{ invoice.invoice_id }}" class="btn btn-ghost btn-xs">Details</a>
-      <button
-        class="btn btn-primary btn-xs"
-        hx-post="/api/invoices/{{ invoice.invoice_id }}/process"
-        hx-swap="none"
-      >
-        {% if invoice.stage.value == 'pending' %}Process{% else %}Retry{% endif %}
-      </button>
+      {% if invoice.stage.value in ('needs_match_review', 'needs_stock_review') %}
+        <a href="/invoices/{{ invoice.invoice_id }}" class="btn btn-warning btn-xs">Review</a>
+      {% else %}
+        <button
+          class="btn btn-primary btn-xs"
+          hx-post="/api/invoices/{{ invoice.invoice_id }}/process"
+          hx-swap="none"
+        >
+          {% if invoice.stage.value == 'pending' %}Process{% else %}Retry{% endif %}
+        </button>
+      {% endif %}
     </div>
   </div>
 </div>

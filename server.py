@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
 
 from app.api import router as api_router
-from app.database import init_db
+from app.database import ensure_db
 from app.pages import router as pages_router
 from app.sse import router as sse_router
 from app.store import InvoiceStore, scan_invoices
@@ -23,7 +23,7 @@ DB_PATH = "inventory.db"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize database
-    init_db(DB_PATH)
+    ensure_db(DB_PATH)
     app.state.db_path = DB_PATH
 
     # Set up Jinja2 templates

@@ -1,0 +1,65 @@
+<div class="card bg-base-100 shadow-sm border border-base-300">
+  <div class="card-body p-4">
+    <h3 class="font-bold text-sm mb-2">Match Results</h3>
+
+    {% if invoice.match_result.all_high_confidence %}
+      <div class="alert alert-success py-2 text-sm mb-3">All matches are high confidence</div>
+    {% else %}
+      <div class="alert alert-warning py-2 text-sm mb-3">Some matches need review</div>
+    {% endif %}
+
+    <!-- Vendor Match -->
+    <div class="mb-3">
+      <h4 class="font-semibold text-xs mb-1">Vendor Match</h4>
+      <div class="flex items-center gap-2">
+        <span class="text-xs">{{ invoice.match_result.vendor_match.extracted_name }}</span>
+        <span class="text-xs text-base-content/50">-></span>
+        <span class="text-xs font-medium">{{ invoice.match_result.vendor_match.matched_vendor_name or 'No match' }}</span>
+        {% set vc = invoice.match_result.vendor_match.confidence %}
+        <span class="badge badge-xs {% if vc >= 0.8 %}badge-success{% elif vc >= 0.5 %}badge-warning{% else %}badge-error{% endif %}">
+          {{ "%.0f"|format(vc * 100) }}%
+        </span>
+      </div>
+      {% if invoice.match_result.vendor_match.alternatives %}
+      <div class="text-xs text-base-content/50 mt-1">
+        Alternatives: {{ invoice.match_result.vendor_match.alternatives | join(', ') }}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Item Matches -->
+    <h4 class="font-semibold text-xs mb-1">Item Matches</h4>
+    <div class="overflow-x-auto">
+      <table class="table table-xs">
+        <thead>
+          <tr>
+            <th>Extracted</th>
+            <th>Matched</th>
+            <th class="text-right">Confidence</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for im in invoice.match_result.item_matches %}
+          <tr>
+            <td class="text-xs">{{ im.extracted_description }}</td>
+            <td class="text-xs font-medium">{{ im.matched_item or 'No match' }}</td>
+            <td class="text-right">
+              {% set ic = im.confidence %}
+              <span class="badge badge-xs {% if ic >= 0.8 %}badge-success{% elif ic >= 0.5 %}badge-warning{% else %}badge-error{% endif %}">
+                {{ "%.0f"|format(ic * 100) }}%
+              </span>
+            </td>
+          </tr>
+          {% if im.alternatives %}
+          <tr>
+            <td colspan="3" class="text-xs text-base-content/50 pt-0">
+              Alternatives: {{ im.alternatives | join(', ') }}
+            </td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

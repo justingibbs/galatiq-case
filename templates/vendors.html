@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Vendors — Invoice Pipeline{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold">Vendors</h1>
+    <p class="text-base-content/60 mt-1">{{ vendors|length }} registered vendor{{ 's' if vendors|length != 1 else '' }}</p>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <!-- Vendor Table -->
+  <div class="lg:col-span-2">
+    {% if vendors %}
+    <div class="overflow-x-auto">
+      <table class="table table-sm bg-base-100 shadow-sm border border-base-300 rounded-lg">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Address</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in vendors %}
+          <tr>
+            <td class="text-xs text-base-content/60">{{ v.id }}</td>
+            <td class="font-medium text-sm">{{ v.name }}</td>
+            <td class="text-sm">{{ v.email or '---' }}</td>
+            <td class="text-sm">{{ v.phone or '---' }}</td>
+            <td class="text-sm">{{ v.address or '---' }}</td>
+            <td class="text-xs text-base-content/60">{{ v.created_at }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="alert">
+      <p>No vendors registered.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Add Vendor Form -->
+  <div>
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body p-4">
+        <h3 class="font-bold text-sm mb-3">Add Vendor</h3>
+        <form id="add-vendor-form" class="space-y-3">
+          <div class="form-control">
+            <label class="label"><span class="label-text text-xs">Name *</span></label>
+            <input type="text" id="vendor-name" class="input input-bordered input-sm w-full" required />
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text text-xs">Email</span></label>
+            <input type="email" id="vendor-email" class="input input-bordered input-sm w-full" />
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text text-xs">Phone</span></label>
+            <input type="text" id="vendor-phone" class="input input-bordered input-sm w-full" />
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text text-xs">Address</span></label>
+            <input type="text" id="vendor-address" class="input input-bordered input-sm w-full" />
+          </div>
+          <button type="button" class="btn btn-primary btn-sm w-full" onclick="addVendor()">
+            Add Vendor
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function addVendor() {
+  const name = document.getElementById('vendor-name').value.trim();
+  if (!name) {
+    document.getElementById('vendor-name').classList.add('input-error');
+    return;
+  }
+
+  const body = {
+    name: name,
+    email: document.getElementById('vendor-email').value.trim() || null,
+    phone: document.getElementById('vendor-phone').value.trim() || null,
+    address: document.getElementById('vendor-address').value.trim() || null,
+  };
+
+  fetch('/api/vendors', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(r => r.json()).then(data => {
+    if (data.id) {
+      window.location.reload();
+    }
+  });
+}
+</script>
+{% endblock %}

@@ -27,10 +27,12 @@ async def lifespan(app: FastAPI):
     app.state.db_path = DB_PATH
 
     # Set up Jinja2 templates
-    app.state.templates = Environment(
+    templates = Environment(
         loader=FileSystemLoader("templates"),
         autoescape=True,
     )
+    templates.tests["ge"] = lambda value, threshold: value is not None and value >= threshold
+    app.state.templates = templates
 
     # Scan and register invoices
     store = InvoiceStore()

@@ -1,10 +1,14 @@
 <div class="match-review-form" data-invoice-id="{{ invoice.invoice_id }}">
 
   <!-- ============ STEP 1: Vendor ============ -->
-  <div class="mb-5">
+  {% set vendor_confident = match_result_data.vendor_match.confidence and match_result_data.vendor_match.confidence >= 0.95 %}
+  <div class="mb-5 {% if vendor_confident %}opacity-40{% endif %}">
     <div class="flex items-center gap-2 mb-3">
-      <span class="badge badge-primary badge-sm font-bold">1</span>
+      <span class="badge {% if vendor_confident %}badge-success{% else %}badge-primary{% endif %} badge-sm font-bold">1</span>
       <h4 class="font-semibold text-sm">Confirm Vendor</h4>
+      {% if vendor_confident %}
+      <span class="text-xs text-success">Auto-matched</span>
+      {% endif %}
     </div>
 
     <div class="pl-7">
@@ -51,19 +55,23 @@
   <div class="divider my-1"></div>
 
   <!-- ============ STEP 2: Line Items ============ -->
+  {% set all_items_confident = match_result_data.item_matches|selectattr('confidence', 'ge', 0.95)|list|length == match_result_data.item_matches|length %}
   <div class="mb-4">
     <div class="flex items-center gap-2 mb-1">
-      <span class="badge badge-primary badge-sm font-bold">2</span>
+      <span class="badge {% if all_items_confident %}badge-success{% else %}badge-primary{% endif %} badge-sm font-bold">2</span>
       <h4 class="font-semibold text-sm">Confirm Item Matches</h4>
+      {% if all_items_confident %}
+      <span class="text-xs text-success">Auto-matched</span>
+      {% endif %}
     </div>
     <p class="text-xs text-base-content/60 pl-7 mb-3">
       Map each extracted line item to a real inventory item.
       If an item cannot be matched, reject the invoice instead.
     </p>
 
-    <div class="pl-7 space-y-3">
+    <div class="pl-7 space-y-3 {% if all_items_confident %}opacity-40{% endif %}">
       {% for im in match_result_data.item_matches %}
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 {% if not all_items_confident and im.confidence >= 0.95 %}opacity-40{% endif %}">
         <span class="text-xs w-36 truncate" title="{{ im.extracted_description }}">
           {{ im.extracted_description }}
         </span>

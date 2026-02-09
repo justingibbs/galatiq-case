@@ -4,7 +4,7 @@
 <td><span class="badge badge-outline badge-xs">{{ invoice.file_format }}</span></td>
 <td>
   {% if invoice.stage.value == 'pending' %}
-    <span class="badge badge-ghost badge-sm">Pending</span>
+    <span class="badge badge-neutral badge-sm">Pending</span>
   {% elif invoice.stage.value == 'ingesting' %}
     <span class="badge badge-info badge-sm"><span class="loading loading-spinner loading-xs mr-1"></span>Extracting</span>
   {% elif invoice.stage.value == 'matching' %}
@@ -16,7 +16,7 @@
   {% elif invoice.stage.value == 'failed' %}
     <span class="badge badge-error badge-sm">Failed</span>
   {% else %}
-    <span class="badge badge-ghost badge-sm">{{ invoice.stage.value }}</span>
+    <span class="badge badge-neutral badge-sm">{{ invoice.stage.value }}</span>
   {% endif %}
 </td>
 <td class="text-sm text-base-content/70">

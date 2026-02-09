@@ -6,7 +6,7 @@
 </td>
 <td>
   {% if invoice.stage.value == 'matched' %}
-    <span class="badge badge-ghost badge-sm">Queued</span>
+    <span class="badge badge-neutral badge-sm">Queued</span>
   {% elif invoice.stage.value == 'validating' %}
     <span class="badge badge-info badge-sm"><span class="loading loading-spinner loading-xs mr-1"></span>Validating</span>
   {% elif invoice.stage.value == 'approving' %}
@@ -24,7 +24,7 @@
   {% elif invoice.stage.value == 'failed' %}
     <span class="badge badge-error badge-sm">Failed</span>
   {% else %}
-    <span class="badge badge-ghost badge-sm">{{ invoice.stage.value }}</span>
+    <span class="badge badge-neutral badge-sm">{{ invoice.stage.value }}</span>
   {% endif %}
 </td>
 <td class="text-xs">

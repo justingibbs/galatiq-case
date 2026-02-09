@@ -1,0 +1,125 @@
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold">Step 2: Match & Review</h1>
+    <p class="text-base-content/60 mt-1">
+      {% set needs_review = invoices|selectattr('stage.value', 'equalto', 'needs_match_review')|list %}
+      {% set auto_matched = invoices|selectattr('stage.value', 'equalto', 'matched')|list %}
+      {{ needs_review|length }} of {{ invoices|length }} need review
+    </p>
+  </div>
+</div>
+
+<!-- Batch status (polled for updates after match reviews) -->
+<div
+  id="batch-status-area"
+  hx-get="/api/batch/status"
+  hx-trigger="matchResolved from:body"
+  hx-swap="innerHTML"
+>
+  {% include "partials/batch_status.html" %}
+</div>
+
+<!-- Auto-matched section -->
+{% set matched_invoices = invoices|selectattr('stage.value', 'equalto', 'matched')|list %}
+{% if matched_invoices %}
+<div class="mt-6">
+  <h2 class="text-lg font-semibold mb-3 text-success">
+    Auto-Matched ({{ matched_invoices|length }})
+  </h2>
+  <div class="space-y-2">
+    {% for invoice in matched_invoices %}
+    <div class="card bg-success/5 border border-success/30 shadow-sm">
+      <div class="card-body p-3 flex-row items-center justify-between">
+        <div class="flex items-center gap-4">
+          <span class="badge badge-success badge-sm">Matched</span>
+          <a href="/invoices/{{ invoice.invoice_id }}" class="font-medium text-sm hover:underline">{{ invoice.filename }}</a>
+          <span class="badge badge-outline badge-xs">{{ invoice.file_format }}</span>
+        </div>
+        <div class="flex items-center gap-4 text-sm text-base-content/70">
+          {% if invoice.extracted %}
+          <span>{{ invoice.extracted.vendor_name }}</span>
+          <span class="font-medium">{{ "%.2f"|format(invoice.extracted.total_amount) }}</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Needs attention section -->
+{% set review_invoices = invoices|selectattr('stage.value', 'equalto', 'needs_match_review')|list %}
+{% if review_invoices %}
+<div class="mt-6">
+  <h2 class="text-lg font-semibold mb-3 text-warning">
+    Needs Attention ({{ review_invoices|length }})
+  </h2>
+  <div class="space-y-4">
+    {% for invoice in review_invoices %}
+    <div id="match-card-{{ invoice.invoice_id }}">
+      <div class="card bg-warning/5 border border-warning/30 shadow-sm">
+        <div class="card-body p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-3">
+              <span class="badge badge-warning badge-sm">Needs Review</span>
+              <a href="/invoices/{{ invoice.invoice_id }}" class="font-medium text-sm hover:underline">{{ invoice.filename }}</a>
+              <span class="badge badge-outline badge-xs">{{ invoice.file_format }}</span>
+            </div>
+            <div class="text-sm text-base-content/70">
+              {% if invoice.extracted %}
+              {{ invoice.extracted.vendor_name }} &mdash; {{ "%.2f"|format(invoice.extracted.total_amount) }}
+              {% endif %}
+            </div>
+          </div>
+
+          {% if match_review_map is defined and invoice.invoice_id in match_review_map %}
+            {% set review_data = match_review_map[invoice.invoice_id] %}
+            {% set match_result_data = review_data.match_result %}
+            {% set inv_vendors = review_data.vendors %}
+            {% set inv_inventory = review_data.inventory_items %}
+            {% include "partials/match_review_form.html" %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Failed invoices -->
+{% set failed_invoices = invoices|selectattr('stage.value', 'equalto', 'failed')|list %}
+{% if failed_invoices %}
+<div class="mt-6">
+  <h2 class="text-lg font-semibold mb-3 text-error">
+    Failed ({{ failed_invoices|length }})
+  </h2>
+  <div class="space-y-2">
+    {% for invoice in failed_invoices %}
+    <div class="card bg-error/5 border border-error/30 shadow-sm">
+      <div class="card-body p-3 flex-row items-center justify-between">
+        <div class="flex items-center gap-4">
+          <span class="badge badge-error badge-sm">Failed</span>
+          <span class="font-medium text-sm">{{ invoice.filename }}</span>
+        </div>
+        <span class="text-xs text-error truncate max-w-md" title="{{ invoice.error }}">
+          {{ invoice.error[:80] if invoice.error else '' }}{% if invoice.error and invoice.error|length > 80 %}...{% endif %}
+        </span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Continue button -->
+<div class="mt-6 flex justify-end">
+  <a
+    id="btn-continue-step2"
+    href="/?step=3"
+    class="btn btn-primary {% if review_invoices|length > 0 %}btn-disabled{% endif %}"
+  >
+    Continue to Approve & Fulfill
+  </a>
+</div>

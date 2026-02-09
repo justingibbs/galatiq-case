@@ -15,9 +15,15 @@ def get_store(request: Request) -> InvoiceStore:
 
 
 @router.get("/sse/invoices/batch/progress")
-async def batch_progress(request: Request):
+async def batch_progress(request: Request, step: int = 1):
     store = get_store(request)
     templates = request.app.state.templates
+
+    # Choose template based on wizard step
+    if step == 3:
+        row_template = "partials/wizard_fulfill_row.html"
+    else:
+        row_template = "partials/wizard_import_row.html"
 
     async def event_generator():
         queue = store.subscribe_batch()
@@ -25,13 +31,25 @@ async def batch_progress(request: Request):
             while True:
                 try:
                     status = await asyncio.wait_for(queue.get(), timeout=30.0)
-                    html = templates.get_template("partials/invoice_card.html").render(
-                        invoice=status
-                    )
+
+                    # Per-invoice row update
+                    html = templates.get_template(row_template).render(invoice=status)
                     yield {
                         "event": status.invoice_id,
                         "data": html,
                     }
+
+                    # Batch status summary update
+                    summary = store.get_batch_summary()
+                    wizard_step = store.get_wizard_step()
+                    status_html = templates.get_template("partials/batch_status.html").render(
+                        summary=summary, wizard_step=wizard_step,
+                    )
+                    yield {
+                        "event": "batch-status",
+                        "data": status_html,
+                    }
+
                 except asyncio.TimeoutError:
                     yield {"event": "keepalive", "data": ""}
                 except asyncio.CancelledError:

@@ -1,0 +1,22 @@
+<div class="card bg-base-100 border border-base-300 shadow-sm">
+  <div class="card-body p-3 flex-row items-center justify-between">
+    <div class="flex items-center gap-4">
+      {% if invoice.stage.value == 'rejected' %}
+        <span class="badge badge-error badge-sm">Rejected</span>
+      {% elif invoice.stage.value == 'backordered' %}
+        <span class="badge badge-info badge-sm">Backordered</span>
+      {% elif invoice.stage.value == 'approving' %}
+        <span class="badge badge-warning badge-sm"><span class="loading loading-spinner loading-xs mr-1"></span>Resuming</span>
+      {% else %}
+        <span class="badge badge-success badge-sm">Resolved</span>
+      {% endif %}
+      <span class="font-medium text-sm">{{ invoice.filename }}</span>
+    </div>
+    <div class="flex items-center gap-4 text-sm text-base-content/70">
+      {% if invoice.extracted %}
+      <span>{{ invoice.extracted.vendor_name }}</span>
+      <span class="font-medium">{{ "%.2f"|format(invoice.extracted.total_amount) }}</span>
+      {% endif %}
+    </div>
+  </div>
+</div>

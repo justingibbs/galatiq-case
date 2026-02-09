@@ -1,0 +1,94 @@
+<div class="stats stats-horizontal shadow-sm bg-base-100 border border-base-300 w-full">
+  <div class="stat py-3 px-4">
+    <div class="stat-title text-xs">Total</div>
+    <div class="stat-value text-lg">{{ summary.total }}</div>
+  </div>
+  {% if summary.processing > 0 %}
+  <div class="stat py-3 px-4">
+    <div class="stat-title text-xs">Processing</div>
+    <div class="stat-value text-lg text-info">{{ summary.processing }}</div>
+  </div>
+  {% endif %}
+  {% if summary.matched > 0 %}
+  <div class="stat py-3 px-4">
+    <div class="stat-title text-xs">Auto-Matched</div>
+    <div class="stat-value text-lg text-success">{{ summary.matched }}</div>
+  </div>
+  {% endif %}
+  {% if summary.needs_match_review > 0 %}
+  <div class="stat py-3 px-4">
+    <div class="stat-title text-xs">Needs Review</div>
+    <div class="stat-value text-lg text-warning">{{ summary.needs_match_review }}</div>
+  </div>
+  {% endif %}
+  {% if summary.completed > 0 %}
+  <div class="stat py-3 px-4">
+    <div class="stat-title text-xs">Paid</div>
+    <div class="stat-value text-lg text-success">{{ summary.completed }}</div>
+  </div>
+  {% endif %}
+  {% if summary.needs_stock_review > 0 %}
+  <div class="stat py-3 px-4">
+    <div class="stat-title text-xs">Stock Issues</div>
+    <div class="stat-value text-lg text-warning">{{ summary.needs_stock_review }}</div>
+  </div>
+  {% endif %}
+  {% if summary.rejected > 0 %}
+  <div class="stat py-3 px-4">
+    <div class="stat-title text-xs">Rejected</div>
+    <div class="stat-value text-lg text-error">{{ summary.rejected }}</div>
+  </div>
+  {% endif %}
+  {% if summary.failed > 0 %}
+  <div class="stat py-3 px-4">
+    <div class="stat-title text-xs">Failed</div>
+    <div class="stat-value text-lg text-error">{{ summary.failed }}</div>
+  </div>
+  {% endif %}
+  {% if summary.backordered > 0 %}
+  <div class="stat py-3 px-4">
+    <div class="stat-title text-xs">Backordered</div>
+    <div class="stat-value text-lg text-info">{{ summary.backordered }}</div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  // Enable/disable continue buttons based on batch state
+  (function() {
+    var pending = {{ summary.pending }};
+    var processing = {{ summary.processing }};
+    var needsMatch = {{ summary.needs_match_review }};
+    var needsStock = {{ summary.needs_stock_review }};
+
+    // Step 1 continue: disabled while pending or processing
+    var btn1 = document.getElementById('btn-continue-step1');
+    if (btn1) {
+      if (pending > 0 || processing > 0) {
+        btn1.classList.add('btn-disabled');
+      } else {
+        btn1.classList.remove('btn-disabled');
+      }
+    }
+
+    // Step 2 continue: disabled while needs_match_review > 0
+    var btn2 = document.getElementById('btn-continue-step2');
+    if (btn2) {
+      if (needsMatch > 0) {
+        btn2.classList.add('btn-disabled');
+      } else {
+        btn2.classList.remove('btn-disabled');
+      }
+    }
+
+    // Step 3 finalize: disabled while processing or needs_stock_review > 0
+    var btn3 = document.getElementById('btn-continue-step3');
+    if (btn3) {
+      if (processing > 0 || needsStock > 0) {
+        btn3.classList.add('btn-disabled');
+      } else {
+        btn3.classList.remove('btn-disabled');
+      }
+    }
+  })();
+</script>

@@ -85,6 +85,7 @@ class PipelineStage(str, Enum):
     VALIDATING = "validating"
     APPROVING = "approving"
     PAYING = "paying"
+    MATCHED = "matched"
     COMPLETED = "completed"
     REJECTED = "rejected"
     FAILED = "failed"

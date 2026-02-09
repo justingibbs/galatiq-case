@@ -1,0 +1,89 @@
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold">Step 3: Approve & Fulfill</h1>
+    <p class="text-base-content/60 mt-1">Validating, approving, and processing payments</p>
+  </div>
+</div>
+
+<!-- Auto-trigger fulfill on load -->
+<div
+  hx-post="/api/batch/fulfill"
+  hx-trigger="load"
+  hx-swap="none"
+></div>
+
+<div
+  id="fulfill-grid"
+  hx-ext="sse"
+  sse-connect="/sse/invoices/batch/progress?step=3"
+>
+  <!-- Batch status summary (updated via SSE) -->
+  <div id="batch-status-area" sse-swap="batch-status" hx-swap="innerHTML">
+    {% include "partials/batch_status.html" %}
+  </div>
+
+  <!-- Invoice rows -->
+  <div class="overflow-x-auto mt-4">
+    <table class="table table-sm bg-base-100 shadow-sm border border-base-300 rounded-lg">
+      <thead>
+        <tr>
+          <th>Filename</th>
+          <th>Vendor</th>
+          <th>Status</th>
+          <th>Validation</th>
+          <th>Approval</th>
+          <th class="text-right">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for invoice in invoices %}
+        <tr id="row-{{ invoice.invoice_id }}" sse-swap="{{ invoice.invoice_id }}" hx-swap="innerHTML">
+          {% include "partials/wizard_fulfill_row.html" %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Stock issues section (inline forms) -->
+{% set stock_invoices = invoices|selectattr('stage.value', 'equalto', 'needs_stock_review')|list %}
+{% if stock_invoices %}
+<div class="mt-6">
+  <h2 class="text-lg font-semibold mb-3 text-warning">
+    Stock Issues ({{ stock_invoices|length }})
+  </h2>
+  <div class="space-y-4">
+    {% for invoice in stock_invoices %}
+    <div id="stock-card-{{ invoice.invoice_id }}">
+      <div class="card bg-warning/5 border border-warning/30 shadow-sm">
+        <div class="card-body p-4">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="badge badge-warning badge-sm">Stock Issue</span>
+            <span class="font-medium text-sm">{{ invoice.filename }}</span>
+            {% if invoice.extracted %}
+            <span class="text-sm text-base-content/70">{{ invoice.extracted.vendor_name }}</span>
+            {% endif %}
+          </div>
+          {% if stock_review_map is defined and invoice.invoice_id in stock_review_map %}
+            {% set stock_issues_data = stock_review_map[invoice.invoice_id] %}
+            {% include "partials/stock_review_form.html" %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Continue button -->
+<div class="mt-6 flex justify-end">
+  <a
+    id="btn-continue-step3"
+    href="/?step=4"
+    class="btn btn-primary {% if summary.processing > 0 or summary.needs_stock_review > 0 %}btn-disabled{% endif %}"
+  >
+    Finalize
+  </a>
+</div>

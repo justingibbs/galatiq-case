@@ -15,9 +15,12 @@ from app.database import (
     reset_database,
     resolve_review_queue_item,
 )
+from fastapi.responses import HTMLResponse
+
 from app.graph import (
-    resume_after_match_review,
     resume_after_stock_review,
+    run_fulfill_phase,
+    run_import_phase,
     run_pipeline,
 )
 from app.models import (
@@ -74,6 +77,80 @@ async def _process_invoice(invoice_id: str, store: InvoiceStore, db_path: str) -
             file_path=str(file_path),
             db_path=db_path,
             invoice_id=invoice_id,
+            on_stage_change=on_stage_change,
+        )
+        await store.update(
+            invoice_id,
+            stage=result.stage,
+            extracted=result.extracted,
+            validation=result.validation,
+            approval=result.approval,
+            payment_result=result.payment_result,
+            match_result=result.match_result,
+            stock_issues=result.stock_issues,
+            error=result.error,
+            completed_at=datetime.now(timezone.utc),
+        )
+    except Exception as e:
+        await store.update(
+            invoice_id,
+            stage=PipelineStage.FAILED,
+            error=str(e),
+            completed_at=datetime.now(timezone.utc),
+        )
+
+
+async def _import_invoice(invoice_id: str, store: InvoiceStore, db_path: str) -> None:
+    """Background task to run import phase (Ingest + Match) for a single invoice."""
+    status = store.get(invoice_id)
+    if status is None:
+        return
+
+    file_path = INVOICES_DIR / status.filename
+    await store.update(invoice_id, stage=PipelineStage.INGESTING, started_at=datetime.now(timezone.utc))
+
+    on_stage_change = await _on_stage_change_factory(invoice_id, store)
+
+    try:
+        result = await run_import_phase(
+            file_path=str(file_path),
+            db_path=db_path,
+            invoice_id=invoice_id,
+            on_stage_change=on_stage_change,
+        )
+        await store.update(
+            invoice_id,
+            stage=result.stage,
+            extracted=result.extracted,
+            match_result=result.match_result,
+            error=result.error,
+            completed_at=datetime.now(timezone.utc),
+        )
+    except Exception as e:
+        await store.update(
+            invoice_id,
+            stage=PipelineStage.FAILED,
+            error=str(e),
+            completed_at=datetime.now(timezone.utc),
+        )
+
+
+async def _fulfill_invoice(invoice_id: str, store: InvoiceStore, db_path: str) -> None:
+    """Background task to run fulfill phase (Validate → Approve → Pay) for a single invoice."""
+    status = store.get(invoice_id)
+    if status is None or status.extracted is None:
+        return
+
+    file_path = str(INVOICES_DIR / status.filename)
+    on_stage_change = await _on_stage_change_factory(invoice_id, store)
+
+    try:
+        result = await run_fulfill_phase(
+            extracted=status.extracted,
+            invoice_id=invoice_id,
+            file_path=file_path,
+            db_path=db_path,
+            match_result=status.match_result,
             on_stage_change=on_stage_change,
         )
         await store.update(
@@ -160,6 +237,58 @@ async def process_all(request: Request, background_tasks: BackgroundTasks):
     return {"status": "started", "count": len(started), "invoice_ids": started}
 
 
+# --- Batch wizard endpoints ---
+
+@router.post("/api/batch/import")
+async def batch_import(request: Request, background_tasks: BackgroundTasks):
+    """Run import phase (Ingest + Match) for all PENDING invoices."""
+    store = get_store(request)
+    db_path = request.app.state.db_path
+    started = []
+
+    for inv_id, status in store.invoices.items():
+        if status.stage == PipelineStage.PENDING:
+            await store.update(
+                inv_id, stage=PipelineStage.PENDING, error=None,
+                extracted=None, validation=None, approval=None,
+                payment_result=None, match_result=None, stock_issues=None,
+                started_at=None, completed_at=None,
+            )
+            background_tasks.add_task(_import_invoice, inv_id, store, db_path)
+            started.append(inv_id)
+
+    return {"status": "started", "count": len(started), "invoice_ids": started}
+
+
+@router.post("/api/batch/fulfill")
+async def batch_fulfill(request: Request, background_tasks: BackgroundTasks):
+    """Run fulfill phase (Validate → Approve → Pay) for all MATCHED + resolved invoices."""
+    store = get_store(request)
+    db_path = request.app.state.db_path
+    started = []
+
+    fulfillable = {PipelineStage.MATCHED}
+    for inv_id, status in store.invoices.items():
+        if status.stage in fulfillable and status.extracted is not None:
+            background_tasks.add_task(_fulfill_invoice, inv_id, store, db_path)
+            started.append(inv_id)
+
+    return {"status": "started", "count": len(started), "invoice_ids": started}
+
+
+@router.get("/api/batch/status")
+async def batch_status(request: Request):
+    """Return HTML partial with current batch summary."""
+    store = get_store(request)
+    env = request.app.state.templates
+    summary = store.get_batch_summary()
+    wizard_step = store.get_wizard_step()
+    html = env.get_template("partials/batch_status.html").render(
+        summary=summary, wizard_step=wizard_step,
+    )
+    return HTMLResponse(html)
+
+
 # --- Match review resolution ---
 
 class MatchResolveBody(BaseModel):
@@ -171,7 +300,6 @@ class MatchResolveBody(BaseModel):
 @router.post("/api/invoices/{invoice_id}/resolve-match")
 async def resolve_match(
     invoice_id: str, body: MatchResolveBody, request: Request,
-    background_tasks: BackgroundTasks,
 ):
     store = get_store(request)
     db_path = request.app.state.db_path
@@ -204,42 +332,46 @@ async def resolve_match(
     # Resolve the queue item
     resolve_review_queue_item(invoice_id, db_path)
 
-    # Resume pipeline from ValidateNode
-    file_path = str(INVOICES_DIR / status.filename)
+    # Set to MATCHED (wizard step 3 will trigger the fulfill phase)
+    await store.update(invoice_id, stage=PipelineStage.MATCHED, extracted=extracted, match_result=status.match_result)
 
-    async def _resume():
-        on_stage_change = await _on_stage_change_factory(invoice_id, store)
-        try:
-            result = await resume_after_match_review(
-                extracted=extracted,
-                invoice_id=invoice_id,
-                file_path=file_path,
-                db_path=db_path,
-                on_stage_change=on_stage_change,
-            )
-            await store.update(
-                invoice_id,
-                stage=result.stage,
-                extracted=result.extracted,
-                validation=result.validation,
-                approval=result.approval,
-                payment_result=result.payment_result,
-                match_result=result.match_result,
-                stock_issues=result.stock_issues,
-                error=result.error,
-                completed_at=datetime.now(timezone.utc),
-            )
-        except Exception as e:
-            await store.update(
-                invoice_id,
-                stage=PipelineStage.FAILED,
-                error=str(e),
-                completed_at=datetime.now(timezone.utc),
-            )
+    # If called via HTMX, return resolved card partial
+    if request.headers.get("HX-Request"):
+        env = request.app.state.templates
+        updated = store.get(invoice_id)
+        html = env.get_template("partials/wizard_resolved_match_card.html").render(invoice=updated)
+        return HTMLResponse(html)
 
-    await store.update(invoice_id, stage=PipelineStage.VALIDATING, extracted=extracted)
-    background_tasks.add_task(_resume)
-    return {"status": "resumed", "invoice_id": invoice_id}
+    return {"status": "resolved", "invoice_id": invoice_id}
+
+
+@router.post("/api/invoices/{invoice_id}/reject-match")
+async def reject_match(invoice_id: str, request: Request):
+    """Reject an invoice during match review (unresolvable item matches)."""
+    store = get_store(request)
+    db_path = request.app.state.db_path
+    status = store.get(invoice_id)
+
+    if status is None:
+        return {"error": "Invoice not found"}
+    if status.stage != PipelineStage.NEEDS_MATCH_REVIEW:
+        return {"error": "Invoice is not awaiting match review"}
+
+    resolve_review_queue_item(invoice_id, db_path)
+    await store.update(
+        invoice_id,
+        stage=PipelineStage.REJECTED,
+        error="Rejected during match review: unresolvable item matches",
+        completed_at=datetime.now(timezone.utc),
+    )
+
+    if request.headers.get("HX-Request"):
+        env = request.app.state.templates
+        updated = store.get(invoice_id)
+        html = env.get_template("partials/wizard_resolved_match_card.html").render(invoice=updated)
+        return HTMLResponse(html)
+
+    return {"status": "rejected", "invoice_id": invoice_id}
 
 
 # --- Stock review resolution ---
@@ -273,6 +405,14 @@ async def resolve_stock(
     # Resolve the queue item
     resolve_review_queue_item(invoice_id, db_path)
 
+    def _htmx_response(inv_id: str):
+        if request.headers.get("HX-Request"):
+            env = request.app.state.templates
+            updated = store.get(inv_id)
+            html = env.get_template("partials/wizard_resolved_stock_card.html").render(invoice=updated)
+            return HTMLResponse(html)
+        return None
+
     if body.action == "reject":
         await store.update(
             invoice_id,
@@ -280,6 +420,9 @@ async def resolve_stock(
             error="Rejected during stock review",
             completed_at=datetime.now(timezone.utc),
         )
+        htmx = _htmx_response(invoice_id)
+        if htmx:
+            return htmx
         return {"status": "rejected", "invoice_id": invoice_id}
 
     if body.action == "backorder":
@@ -288,6 +431,9 @@ async def resolve_stock(
             stage=PipelineStage.BACKORDERED,
             completed_at=datetime.now(timezone.utc),
         )
+        htmx = _htmx_response(invoice_id)
+        if htmx:
+            return htmx
         return {"status": "backordered", "invoice_id": invoice_id}
 
     if body.action == "partial":
@@ -354,6 +500,10 @@ async def resolve_stock(
             extracted=extracted, validation=validation, stock_issues=None,
         )
         background_tasks.add_task(_resume)
+
+        htmx = _htmx_response(invoice_id)
+        if htmx:
+            return htmx
         return {"status": "resumed", "invoice_id": invoice_id}
 
     return {"error": f"Unknown action: {body.action}"}

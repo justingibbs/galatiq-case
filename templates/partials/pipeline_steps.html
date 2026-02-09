@@ -1,6 +1,6 @@
 {% set stages = ['ingesting', 'matching', 'validating', 'approving', 'paying'] %}
 {% set stage_labels = {'ingesting': 'Extract', 'matching': 'Match', 'validating': 'Validate', 'approving': 'Approve', 'paying': 'Pay'} %}
-{% set stage_order = {'pending': 0, 'ingesting': 1, 'matching': 2, 'validating': 3, 'approving': 4, 'paying': 5, 'completed': 6, 'rejected': 6, 'failed': 6, 'needs_match_review': 2, 'needs_stock_review': 3, 'backordered': 3} %}
+{% set stage_order = {'pending': 0, 'ingesting': 1, 'matching': 2, 'matched': 2, 'validating': 3, 'approving': 4, 'paying': 5, 'completed': 6, 'rejected': 6, 'failed': 6, 'needs_match_review': 2, 'needs_stock_review': 3, 'backordered': 3} %}
 {% set current_order = stage_order.get(invoice.stage.value, 0) %}
 
 <ul class="steps steps-horizontal text-xs">
@@ -10,7 +10,7 @@
     {{ stage_labels[s] }}
   </li>
   {% endfor %}
-  <li class="step{% if invoice.stage.value == 'completed' %} step-success{% elif invoice.stage.value in ('rejected', 'failed') %} step-error{% elif invoice.stage.value in ('needs_match_review', 'needs_stock_review', 'backordered') %} step-warning{% endif %}">
-    {% if invoice.stage.value == 'rejected' %}Rejected{% elif invoice.stage.value == 'failed' %}Failed{% elif invoice.stage.value == 'needs_match_review' %}Review{% elif invoice.stage.value == 'needs_stock_review' %}Review{% elif invoice.stage.value == 'backordered' %}Backordered{% else %}Done{% endif %}
+  <li class="step{% if invoice.stage.value == 'completed' %} step-success{% elif invoice.stage.value in ('rejected', 'failed') %} step-error{% elif invoice.stage.value in ('needs_match_review', 'needs_stock_review', 'backordered', 'matched') %} step-warning{% endif %}">
+    {% if invoice.stage.value == 'rejected' %}Rejected{% elif invoice.stage.value == 'failed' %}Failed{% elif invoice.stage.value == 'needs_match_review' %}Review{% elif invoice.stage.value == 'needs_stock_review' %}Review{% elif invoice.stage.value == 'backordered' %}Backordered{% elif invoice.stage.value == 'matched' %}Matched{% else %}Done{% endif %}
   </li>
 </ul>

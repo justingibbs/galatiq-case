@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Batch Wizard — Invoice Pipeline{% endblock %}
+
+{% block content %}
+{% if wizard_step == 1 %}
+  {% include "partials/wizard_step1_import.html" %}
+{% elif wizard_step == 2 %}
+  {% include "partials/wizard_step2_match.html" %}
+{% elif wizard_step == 3 %}
+  {% include "partials/wizard_step3_fulfill.html" %}
+{% elif wizard_step == 4 %}
+  {% include "partials/wizard_step4_done.html" %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,27 @@
+<td class="text-sm font-medium">
+  <a href="/invoices/{{ invoice.invoice_id }}" class="hover:underline">{{ invoice.filename }}</a>
+</td>
+<td><span class="badge badge-outline badge-xs">{{ invoice.file_format }}</span></td>
+<td>
+  {% if invoice.stage.value == 'pending' %}
+    <span class="badge badge-ghost badge-sm">Pending</span>
+  {% elif invoice.stage.value == 'ingesting' %}
+    <span class="badge badge-info badge-sm"><span class="loading loading-spinner loading-xs mr-1"></span>Extracting</span>
+  {% elif invoice.stage.value == 'matching' %}
+    <span class="badge badge-info badge-sm"><span class="loading loading-spinner loading-xs mr-1"></span>Matching</span>
+  {% elif invoice.stage.value == 'matched' %}
+    <span class="badge badge-success badge-sm">Matched</span>
+  {% elif invoice.stage.value == 'needs_match_review' %}
+    <span class="badge badge-warning badge-sm">Needs Review</span>
+  {% elif invoice.stage.value == 'failed' %}
+    <span class="badge badge-error badge-sm">Failed</span>
+  {% else %}
+    <span class="badge badge-ghost badge-sm">{{ invoice.stage.value }}</span>
+  {% endif %}
+</td>
+<td class="text-sm text-base-content/70">
+  {% if invoice.extracted %}{{ invoice.extracted.vendor_name }}{% else %}---{% endif %}
+</td>
+<td class="text-right text-sm">
+  {% if invoice.extracted %}{{ "%.2f"|format(invoice.extracted.total_amount) }}{% else %}---{% endif %}
+</td>

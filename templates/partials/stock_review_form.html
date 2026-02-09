@@ -1,87 +1,107 @@
-<div class="card bg-warning/10 shadow-sm border border-warning">
-  <div class="card-body p-4">
-    <h3 class="font-bold text-sm mb-3">Stock Review Required</h3>
-    <p class="text-xs text-base-content/70 mb-4">
-      Some items have insufficient stock. Choose how to proceed.
-    </p>
+<div class="stock-review-form" data-invoice-id="{{ invoice.invoice_id }}">
+  <p class="text-xs text-base-content/70 mb-4">
+    Some items have insufficient stock. Choose how to proceed.
+  </p>
 
-    <!-- Stock Issues Table -->
-    <div class="overflow-x-auto mb-4">
-      <table class="table table-xs">
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th class="text-right">Requested</th>
-            <th class="text-right">Available</th>
-            <th class="text-right">Shortfall</th>
-            <th class="text-right">Adjusted Qty</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for si in stock_issues_data %}
-          <tr>
-            <td class="text-xs font-medium">{{ si.item }}</td>
-            <td class="text-right text-xs">{{ si.requested_quantity | int }}</td>
-            <td class="text-right text-xs">{{ si.available_stock }}</td>
-            <td class="text-right text-xs text-error">{{ si.shortfall | int }}</td>
-            <td class="text-right">
-              <input
-                type="number"
-                class="stock-adjust-input input input-bordered input-xs w-20 text-right"
-                data-item="{{ si.item }}"
-                value="{{ si.available_stock }}"
-                min="0"
-                max="{{ si.requested_quantity | int }}"
-              />
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+  <!-- Stock Issues Table -->
+  <div class="overflow-x-auto mb-4">
+    <table class="table table-xs">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th class="text-right">Requested</th>
+          <th class="text-right">Available</th>
+          <th class="text-right">Shortfall</th>
+          <th class="text-right">Adjusted Qty</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for si in stock_issues_data %}
+        <tr>
+          <td class="text-xs font-medium">{{ si.item }}</td>
+          <td class="text-right text-xs">{{ si.requested_quantity | int }}</td>
+          <td class="text-right text-xs">{{ si.available_stock }}</td>
+          <td class="text-right text-xs text-error">{{ si.shortfall | int }}</td>
+          <td class="text-right">
+            <input
+              type="number"
+              class="stock-adjust-input input input-bordered input-xs w-20 text-right"
+              data-item="{{ si.item }}"
+              value="{{ si.available_stock }}"
+              min="0"
+              max="{{ si.requested_quantity | int }}"
+            />
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
-    <!-- Action Buttons -->
-    <div class="flex gap-2">
-      <button
-        class="btn btn-success btn-sm flex-1"
-        onclick="submitStockReview('{{ invoice.invoice_id }}', 'partial')"
-      >
-        Partial Fill
-      </button>
-      <button
-        class="btn btn-info btn-sm flex-1"
-        onclick="submitStockReview('{{ invoice.invoice_id }}', 'backorder')"
-      >
-        Backorder
-      </button>
-      <button
-        class="btn btn-error btn-sm flex-1"
-        onclick="submitStockReview('{{ invoice.invoice_id }}', 'reject')"
-      >
-        Reject
-      </button>
-    </div>
+  <!-- Action Buttons -->
+  <div class="flex gap-2">
+    <button
+      class="btn btn-success btn-sm flex-1 stock-action-btn"
+      data-invoice-id="{{ invoice.invoice_id }}"
+      data-action="partial"
+    >
+      Partial Fill
+    </button>
+    <button
+      class="btn btn-info btn-sm flex-1 stock-action-btn"
+      data-invoice-id="{{ invoice.invoice_id }}"
+      data-action="backorder"
+    >
+      Backorder
+    </button>
+    <button
+      class="btn btn-error btn-sm flex-1 stock-action-btn"
+      data-invoice-id="{{ invoice.invoice_id }}"
+      data-action="reject"
+    >
+      Reject
+    </button>
   </div>
 </div>
 
 <script>
-function submitStockReview(invoiceId, action) {
-  const body = { action: action };
+(function() {
+  var form = document.querySelector('[data-invoice-id="{{ invoice.invoice_id }}"].stock-review-form');
+  if (!form) return;
 
-  if (action === 'partial') {
-    const adjustedQuantities = {};
-    document.querySelectorAll('.stock-adjust-input').forEach(input => {
-      adjustedQuantities[input.dataset.item] = parseFloat(input.value);
+  form.querySelectorAll('.stock-action-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var invoiceId = this.dataset.invoiceId;
+      var action = this.dataset.action;
+      var body = { action: action };
+
+      if (action === 'partial') {
+        var adjustedQuantities = {};
+        form.querySelectorAll('.stock-adjust-input').forEach(function(input) {
+          adjustedQuantities[input.dataset.item] = parseFloat(input.value);
+        });
+        body.adjusted_quantities = adjustedQuantities;
+      }
+
+      var targetEl = document.getElementById('stock-card-' + invoiceId);
+
+      fetch('/api/invoices/' + invoiceId + '/resolve-stock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'HX-Request': 'true',
+        },
+        body: JSON.stringify(body),
+      })
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        if (targetEl) {
+          targetEl.innerHTML = html;
+        }
+        // Trigger batch status refresh
+        document.body.dispatchEvent(new CustomEvent('stockResolved'));
+      });
     });
-    body.adjusted_quantities = adjustedQuantities;
-  }
-
-  fetch('/api/invoices/' + invoiceId + '/resolve-stock', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  }).then(() => {
-    window.location.reload();
   });
-}
+})();
 </script>

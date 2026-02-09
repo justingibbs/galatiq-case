@@ -71,6 +71,7 @@ class PipelineState:
 class PipelineDeps:
     db_path: str = "inventory.db"
     on_stage_change: Callable[[PipelineStage, PipelineState], Awaitable[None]] | None = None
+    stop_after_match: bool = False
 
 
 # --- Nodes ---
@@ -163,6 +164,13 @@ class MatchNode(BaseNode[PipelineState, PipelineDeps, PipelineResult]):
                     and i < len(extracted.line_items)
                 ):
                     extracted.line_items[i].description = item_match.matched_item
+
+            if ctx.deps.stop_after_match:
+                return End(PipelineResult(
+                    stage=PipelineStage.MATCHED,
+                    extracted=extracted,
+                    match_result=match_result,
+                ))
             return ValidateNode()
         else:
             # Save to review queue
@@ -474,6 +482,39 @@ async def resume_after_match_review(
         file_path=file_path,
         invoice_id=invoice_id,
         extracted=extracted,
+    )
+    deps = PipelineDeps(db_path=db_path, on_stage_change=on_stage_change)
+    result = await pipeline_graph.run(ValidateNode(), state=state, deps=deps)
+    return result.output
+
+
+async def run_import_phase(
+    file_path: str | Path,
+    db_path: str = "inventory.db",
+    invoice_id: str = "",
+    on_stage_change: Callable[[PipelineStage, PipelineState], Awaitable[None]] | None = None,
+) -> PipelineResult:
+    """Run import phase only (Ingest + Match). Stops at MATCHED or NEEDS_MATCH_REVIEW."""
+    state = PipelineState(file_path=str(file_path), invoice_id=invoice_id)
+    deps = PipelineDeps(db_path=db_path, on_stage_change=on_stage_change, stop_after_match=True)
+    result = await pipeline_graph.run(IngestNode(), state=state, deps=deps)
+    return result.output
+
+
+async def run_fulfill_phase(
+    extracted: ExtractedInvoice,
+    invoice_id: str,
+    file_path: str,
+    db_path: str = "inventory.db",
+    match_result: MatchResult | None = None,
+    on_stage_change: Callable[[PipelineStage, PipelineState], Awaitable[None]] | None = None,
+) -> PipelineResult:
+    """Run fulfill phase (Validate → Approve → Pay) for a MATCHED invoice."""
+    state = PipelineState(
+        file_path=file_path,
+        invoice_id=invoice_id,
+        extracted=extracted,
+        match_result=match_result,
     )
     deps = PipelineDeps(db_path=db_path, on_stage_change=on_stage_change)
     result = await pipeline_graph.run(ValidateNode(), state=state, deps=deps)

@@ -1,0 +1,94 @@
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold">Batch Complete</h1>
+    <p class="text-base-content/60 mt-1">All invoices have been processed</p>
+  </div>
+  <button
+    class="btn btn-primary"
+    hx-post="/api/reset-database"
+    hx-swap="none"
+    hx-on::after-request="window.location.href='/'"
+  >
+    Start New Batch
+  </button>
+</div>
+
+<!-- Summary stats -->
+<div class="stats stats-horizontal shadow-sm bg-base-100 border border-base-300 w-full mb-6">
+  <div class="stat py-3 px-4">
+    <div class="stat-title text-xs">Total Processed</div>
+    <div class="stat-value text-lg">{{ summary.total }}</div>
+  </div>
+  {% if summary.completed > 0 %}
+  <div class="stat py-3 px-4">
+    <div class="stat-title text-xs">Paid</div>
+    <div class="stat-value text-lg text-success">{{ summary.completed }}</div>
+  </div>
+  {% endif %}
+  {% if summary.backordered > 0 %}
+  <div class="stat py-3 px-4">
+    <div class="stat-title text-xs">Backordered</div>
+    <div class="stat-value text-lg text-info">{{ summary.backordered }}</div>
+  </div>
+  {% endif %}
+  {% if summary.rejected > 0 %}
+  <div class="stat py-3 px-4">
+    <div class="stat-title text-xs">Rejected</div>
+    <div class="stat-value text-lg text-error">{{ summary.rejected }}</div>
+  </div>
+  {% endif %}
+  {% if summary.failed > 0 %}
+  <div class="stat py-3 px-4">
+    <div class="stat-title text-xs">Failed</div>
+    <div class="stat-value text-lg text-error">{{ summary.failed }}</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Results table -->
+<div class="overflow-x-auto">
+  <table class="table table-sm bg-base-100 shadow-sm border border-base-300 rounded-lg">
+    <thead>
+      <tr>
+        <th>Filename</th>
+        <th>Format</th>
+        <th>Vendor</th>
+        <th>Result</th>
+        <th class="text-right">Amount</th>
+        <th>Transaction</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for invoice in invoices %}
+      <tr>
+        <td class="text-sm font-medium">
+          <a href="/invoices/{{ invoice.invoice_id }}" class="hover:underline">{{ invoice.filename }}</a>
+        </td>
+        <td><span class="badge badge-outline badge-xs">{{ invoice.file_format }}</span></td>
+        <td class="text-sm">
+          {% if invoice.extracted %}{{ invoice.extracted.vendor_name }}{% else %}---{% endif %}
+        </td>
+        <td>
+          {% if invoice.stage.value == 'completed' %}
+            <span class="badge badge-success badge-sm">Paid</span>
+          {% elif invoice.stage.value == 'rejected' %}
+            <span class="badge badge-error badge-sm">Rejected</span>
+          {% elif invoice.stage.value == 'backordered' %}
+            <span class="badge badge-info badge-sm">Backordered</span>
+          {% elif invoice.stage.value == 'failed' %}
+            <span class="badge badge-error badge-sm">Failed</span>
+          {% else %}
+            <span class="badge badge-ghost badge-sm">{{ invoice.stage.value }}</span>
+          {% endif %}
+        </td>
+        <td class="text-right text-sm">
+          {% if invoice.extracted %}{{ "%.2f"|format(invoice.extracted.total_amount) }}{% else %}---{% endif %}
+        </td>
+        <td class="font-mono text-xs">
+          {% if invoice.payment_result %}{{ invoice.payment_result.transaction_id }}{% else %}---{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

@@ -1,0 +1,54 @@
+<td class="text-sm font-medium">
+  <a href="/invoices/{{ invoice.invoice_id }}" class="hover:underline">{{ invoice.filename }}</a>
+</td>
+<td class="text-sm text-base-content/70">
+  {% if invoice.extracted %}{{ invoice.extracted.vendor_name }}{% else %}---{% endif %}
+</td>
+<td>
+  {% if invoice.stage.value == 'matched' %}
+    <span class="badge badge-ghost badge-sm">Queued</span>
+  {% elif invoice.stage.value == 'validating' %}
+    <span class="badge badge-info badge-sm"><span class="loading loading-spinner loading-xs mr-1"></span>Validating</span>
+  {% elif invoice.stage.value == 'approving' %}
+    <span class="badge badge-warning badge-sm"><span class="loading loading-spinner loading-xs mr-1"></span>Approving</span>
+  {% elif invoice.stage.value == 'paying' %}
+    <span class="badge badge-warning badge-sm"><span class="loading loading-spinner loading-xs mr-1"></span>Paying</span>
+  {% elif invoice.stage.value == 'completed' %}
+    <span class="badge badge-success badge-sm">Paid</span>
+  {% elif invoice.stage.value == 'rejected' %}
+    <span class="badge badge-error badge-sm">Rejected</span>
+  {% elif invoice.stage.value == 'needs_stock_review' %}
+    <span class="badge badge-warning badge-sm">Stock Issue</span>
+  {% elif invoice.stage.value == 'backordered' %}
+    <span class="badge badge-info badge-sm">Backordered</span>
+  {% elif invoice.stage.value == 'failed' %}
+    <span class="badge badge-error badge-sm">Failed</span>
+  {% else %}
+    <span class="badge badge-ghost badge-sm">{{ invoice.stage.value }}</span>
+  {% endif %}
+</td>
+<td class="text-xs">
+  {% if invoice.validation %}
+    {% if invoice.validation.is_valid %}
+      <span class="text-success">Passed</span>
+    {% else %}
+      <span class="text-warning">{{ invoice.validation.flags|length }} flag{{ 's' if invoice.validation.flags|length != 1 else '' }}</span>
+    {% endif %}
+  {% else %}
+    ---
+  {% endif %}
+</td>
+<td class="text-xs">
+  {% if invoice.approval %}
+    {% if invoice.approval.approved %}
+      <span class="text-success">Approved</span>
+    {% else %}
+      <span class="text-error">Rejected</span>
+    {% endif %}
+  {% else %}
+    ---
+  {% endif %}
+</td>
+<td class="text-right text-sm">
+  {% if invoice.extracted %}{{ "%.2f"|format(invoice.extracted.total_amount) }}{% else %}---{% endif %}
+</td>

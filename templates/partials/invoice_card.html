@@ -39,6 +39,8 @@
         <span class="badge badge-error badge-sm">Rejected</span>
       {% elif invoice.stage.value == 'failed' %}
         <span class="badge badge-error badge-sm">Failed</span>
+      {% elif invoice.stage.value == 'matched' %}
+        <span class="badge badge-success badge-sm">Matched</span>
       {% elif invoice.stage.value == 'needs_match_review' %}
         <span class="badge badge-warning badge-sm">Needs Match Review</span>
       {% elif invoice.stage.value == 'needs_stock_review' %}

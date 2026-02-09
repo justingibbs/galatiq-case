@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body class="min-h-screen bg-base-200">
-  <!-- Top bar: brand + badge + reset -->
+  <!-- Top bar -->
   <div class="navbar bg-base-100 shadow-sm px-4">
     <div class="flex-1">
       <a href="/" class="text-xl font-bold tracking-tight">Invoice Pipeline</a>
@@ -20,44 +20,43 @@
     <div class="flex-none flex items-center gap-3">
       <span class="badge badge-outline badge-sm">Acme Corp</span>
       <div class="divider divider-horizontal mx-0"></div>
+      <a href="/settings/vendors" class="btn btn-ghost btn-xs" title="Vendor Settings">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        Vendors
+      </a>
       <button
         class="btn btn-outline btn-error btn-xs"
         hx-post="/api/reset-database"
         hx-swap="none"
         hx-confirm="Reset all tables to seed state? This will clear all processed invoices, review queue items, and reset inventory stock."
-        hx-on::after-request="window.location.reload()"
+        hx-on::after-request="window.location.href='/'"
       >
         Reset DB
       </button>
     </div>
   </div>
 
-  <!-- Navigation tabs -->
+  <!-- Wizard stepper -->
+  {% if wizard_step is defined %}
   <div class="bg-base-100 border-b border-base-300">
-    <div class="container mx-auto max-w-7xl px-4">
-      <nav class="flex gap-1">
-        {% set nav_items = [
-          ('/', 'Dashboard'),
-          ('/review-queue', 'Review Queue'),
-          ('/processed', 'Processed'),
-          ('/vendors', 'Vendors'),
-        ] %}
-        {% for href, label in nav_items %}
-        <a
-          href="{{ href }}"
-          class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors
-            {% if current_path is defined and current_path == href %}
-              border-primary text-primary
-            {% else %}
-              border-transparent text-base-content/60 hover:text-base-content hover:border-base-300
-            {% endif %}"
-        >
-          {{ label }}
-        </a>
-        {% endfor %}
-      </nav>
+    <div class="container mx-auto max-w-4xl px-4 py-4">
+      <ul class="steps steps-horizontal w-full">
+        <li class="step{% if wizard_step >= 1 %} step-primary{% endif %}">
+          <span class="{% if wizard_step == 1 %}font-bold{% endif %}">Import</span>
+        </li>
+        <li class="step{% if wizard_step >= 2 %} step-primary{% endif %}">
+          <span class="{% if wizard_step == 2 %}font-bold{% endif %}">Match & Review</span>
+        </li>
+        <li class="step{% if wizard_step >= 3 %} step-primary{% endif %}">
+          <span class="{% if wizard_step == 3 %}font-bold{% endif %}">Approve & Fulfill</span>
+        </li>
+        <li class="step{% if wizard_step >= 4 %} step-primary{% endif %}">
+          <span class="{% if wizard_step == 4 %}font-bold{% endif %}">Done</span>
+        </li>
+      </ul>
     </div>
   </div>
+  {% endif %}
 
   <main class="container mx-auto px-4 py-6 max-w-7xl">
     {% block content %}{% endblock %}

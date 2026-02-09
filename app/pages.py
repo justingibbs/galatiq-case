@@ -1,19 +1,17 @@
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from app.database import (
     get_all_inventory_items,
     get_all_vendors,
-    get_processed_invoices,
-    get_review_queue,
     get_review_queue_item,
 )
-from app.models import ExtractedInvoice, MatchResult, StockCheckResult
+from app.models import MatchResult, StockCheckResult
 from app.store import InvoiceStore
-
-import json
 
 router = APIRouter()
 
@@ -23,11 +21,51 @@ def get_store(request: Request) -> InvoiceStore:
 
 
 @router.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request):
+async def wizard_page(request: Request, step: int | None = None):
     store = get_store(request)
     env = request.app.state.templates
+    db_path = request.app.state.db_path
+
+    wizard_step = step if step is not None else store.get_wizard_step()
+    summary = store.get_batch_summary()
     invoices = store.get_all()
-    html = env.get_template("index.html").render(invoices=invoices, current_path="/")
+
+    # For step 2, gather match review data keyed by invoice_id
+    match_review_map = {}
+    if wizard_step == 2:
+        vendors = get_all_vendors(db_path)
+        inventory_items = get_all_inventory_items(db_path)
+        for inv in invoices:
+            if inv.stage.value == "needs_match_review":
+                queue_item = get_review_queue_item(inv.invoice_id, db_path)
+                if queue_item and queue_item.get("match_result_json"):
+                    match_review_map[inv.invoice_id] = {
+                        "match_result": MatchResult.model_validate_json(
+                            queue_item["match_result_json"]
+                        ),
+                        "vendors": vendors,
+                        "inventory_items": inventory_items,
+                    }
+
+    # For step 3, gather stock review data keyed by invoice_id
+    stock_review_map = {}
+    if wizard_step == 3:
+        for inv in invoices:
+            if inv.stage.value == "needs_stock_review":
+                queue_item = get_review_queue_item(inv.invoice_id, db_path)
+                if queue_item and queue_item.get("stock_issues_json"):
+                    stock_review_map[inv.invoice_id] = [
+                        StockCheckResult.model_validate(si)
+                        for si in json.loads(queue_item["stock_issues_json"])
+                    ]
+
+    html = env.get_template("wizard.html").render(
+        invoices=invoices,
+        wizard_step=wizard_step,
+        summary=summary,
+        match_review_map=match_review_map,
+        stock_review_map=stock_review_map,
+    )
     return HTMLResponse(html)
 
 
@@ -60,6 +98,7 @@ async def invoice_detail(invoice_id: str, request: Request):
         inventory_items = get_all_inventory_items(db_path)
 
     vendors = get_all_vendors(db_path)
+    wizard_step = store.get_wizard_step()
 
     html = env.get_template("detail.html").render(
         invoice=status,
@@ -68,50 +107,17 @@ async def invoice_detail(invoice_id: str, request: Request):
         stock_issues_data=stock_issues_data,
         inventory_items=inventory_items,
         vendors=vendors,
-        current_path="/invoices",
+        wizard_step=wizard_step,
     )
     return HTMLResponse(html)
 
 
-@router.get("/review-queue", response_class=HTMLResponse)
-async def review_queue_page(request: Request, type: str | None = None):
-    env = request.app.state.templates
-    db_path = request.app.state.db_path
-    store = get_store(request)
-    items = get_review_queue(review_type=type, db_path=db_path)
-
-    # Enrich with store data for display
-    enriched = []
-    for item in items:
-        inv_status = store.get(item["invoice_id"])
-        enriched.append({
-            **item,
-            "filename": inv_status.filename if inv_status else item["invoice_id"],
-        })
-
-    html = env.get_template("review_queue.html").render(
-        items=enriched, current_filter=type, current_path="/review-queue",
-    )
-    return HTMLResponse(html)
-
-
-@router.get("/processed", response_class=HTMLResponse)
-async def processed_page(request: Request):
-    env = request.app.state.templates
-    db_path = request.app.state.db_path
-    invoices = get_processed_invoices(db_path)
-    html = env.get_template("processed.html").render(
-        invoices=invoices, current_path="/processed",
-    )
-    return HTMLResponse(html)
-
-
-@router.get("/vendors", response_class=HTMLResponse)
+@router.get("/settings/vendors", response_class=HTMLResponse)
 async def vendors_page(request: Request):
     env = request.app.state.templates
     db_path = request.app.state.db_path
     vendors = get_all_vendors(db_path)
     html = env.get_template("vendors.html").render(
-        vendors=vendors, current_path="/vendors",
+        vendors=vendors,
     )
     return HTMLResponse(html)
